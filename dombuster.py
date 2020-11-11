@@ -16,13 +16,11 @@ parser.add_argument('output', type=str, help="Name of output file")
 parser.add_argument('-k', type=str, help="Path to JSON file with API keys. Currently only VirusTotal and SecurityTrail.")
 parser.add_argument('-v', action="store_true", help="Verbosity (caution: it will probably flood your console)")
 parser.add_argument('-q', action="store_true", help="Suppress console output")
-parser.add_argument("-t", action='store_true', help="Use Google Certificate Transparency for additional SSL scraping (VERY SLOW, usually adds quite a few entries)")
+parser.add_argument('-f', action="store_true", help="Don't use slow sources and go fast and furious")
 parser.add_argument("--strict", action='store_true', help="Save only hosts that are online")
 parser.add_argument("--ip", action='store_true', help="Save IP address of subdomain")
-parser.add_argument("--org", action='store_true', help="Save OrgName and NetRange from reverse whois lookup on subdomain")
+parser.add_argument("--org", action='store_true', help="Save OrgName and NetRange from reverse whois lookup on subdomain (can be kinda slow)")
 parser.add_argument("--csv", action='store_true', help="Output in CSV (default: plaintext)")
-#parser.add_argument("-d", action='store_true', help="Use reverse DNS to find subdomains (slow)")
-#parser.add_argument("-h", action='store_true', help="Use HTML parsing to find subdomains (slow and useless)")
 
 APISources = [VirusTotal, SecurityTrails]
 
@@ -40,8 +38,13 @@ def validate(domain):
 
 def work(domain):
 	sources = [child for child in Scraper.__subclasses__() if child not in APISources]
-	if not args.t:
+	if args.f:
+		# slow sources
 		sources.remove(GoogleTransparency)
+		sources.remove(Yahoo)
+		sources.remove(Baidu)
+		sources.remove(Google)
+		sources.remove(DuckDuckGo)
 
 	subdomains = [[] for i in range(len(sources))]
 	threads = [sources[i](domain, subdomains[i], verbose, start_time) for i in range(len(sources))]
@@ -146,7 +149,7 @@ def main():
 		if args.strict:
 			print("%s Search is over. There are %d online hosts on subdomains for %s" % (format_seconds(time.time()-start_time), len(overall), domain))
 		else:
-			print("%s Search is over. There are %d subdomains for %s" % (format_seconds(time.time()-start_time), len(overall), domain))
+			print("%s Search is over. There are %d unique subdomains for %s" % (format_seconds(time.time()-start_time), len(overall), domain))
 
 if __name__ == "__main__":
 	args = parser.parse_args()

@@ -23,7 +23,7 @@ class Scraper(Thread):
 			print("%s Starting scraping subdomains on %s" % (format_seconds(time.time()-self.start_time), self.__class__.__name__))
 		self.scrape()
 		if self.verbosity > 0:
-			print("%s Found %d subdomains on %s" % (format_seconds(time.time()-self.start_time), len(self.subdomains), self.__class__.__name__))
+			print("%s Found %d entries on %s" % (format_seconds(time.time()-self.start_time), len(self.subdomains), self.__class__.__name__))
 		
 	def request(self, query, page):
 		url = self.url.format(query=query, page=page)
