@@ -4,6 +4,7 @@ import json
 import argparse
 from scrapers import *
 from pinger import *
+from banner import print_banner
 
 parser = argparse.ArgumentParser()
 parser.add_argument('domain', type=str, help="Domain name to search for subdomains")
@@ -76,6 +77,7 @@ def beautify(output):
 
 
 def main():
+	print_banner()
 	domain = validate(args.domain)
 	subdomains = work(domain)
 	overall = merge(subdomains)
