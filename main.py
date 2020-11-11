@@ -3,13 +3,15 @@ import re
 import json
 import argparse
 from scrapers import *
+from pinger import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('domain', type=str, help="Domain name to search for subdomains")
 parser.add_argument('output', type=str, help="Name of output file")
 parser.add_argument('-k', type=str, help="Path to JSON file with API keys. Currently only VirusTotal and SecurityTrail.")
 parser.add_argument('-v', action="count", help="Verbosity (use twice if you want to see everything)")
-parser.add_argument("-t", action='store_true', help="Use Google Certificate Transparency for additional SSL scraping (VERY SLOW, usually adds 50-100 entries)")
+parser.add_argument("-t", action='store_true', help="Use Google Certificate Transparency for additional SSL scraping (VERY SLOW, usually adds quite a few entries)")
+parser.add_argument("--strict", action='store_true', help="Save only hosts that are online")
 #parser.add_argument("-d", action='store_true', help="Use reverse DNS to find subdomains (slow)")
 #parser.add_argument("-h", action='store_true', help="Use HTML parsing to find subdomains (VERY SLOW!)")
 
@@ -18,12 +20,12 @@ APISources = [VirusTotal, SecurityTrails]
 def validate(domain):
 	try:
 
-	# all sources accept kaspersky.com, not https://kaspersky.com
-	if args.domain.startswith("http"):
-		domain = re.findall(r'[^/]*\.[a-zA-Z]{2,}$', args.domain)[0]
-	else:
-		domain = args.domain
-	return domain
+		# all sources accept kaspersky.com, not https://kaspersky.com
+		if args.domain.startswith("http"):
+			domain = re.findall(r'[^/]*\.[a-zA-Z]{2,}$', args.domain)[0]
+		else:
+			domain = args.domain
+		return domain
 	
 	except:
 		print("Enter valid domain")
@@ -67,6 +69,11 @@ def beautify(output):
 			to_delete.add(entry)
 	output -= to_delete
 
+	if args.strict:
+		manager = PingManager(list(output), verbose)
+		offlineHosts = manager.start()
+		output -= offlineHosts
+
 
 def main():
 	domain = validate(args.domain)
@@ -78,11 +85,14 @@ def main():
 		for subdomain in overall:
 			f.write("%s\n" % subdomain)
 
-	print("\nFinished. There are %d subdomains for %s" % (len(overall), domain))
+	if args.strict:
+		print("\nFinished. There are %d online hosts on subdomains for %s" % (len(overall), domain))
+	else:
+		print("\nFinished. There are %d subdomains for %s" % (len(overall), domain))
 
 if __name__ == "__main__":
 	args = parser.parse_args()
-	verbose = 0 if (args.v is None) else verbose = args.v
+	verbose = 0 if (args.v is None) else args.v
 	main()
 
 
