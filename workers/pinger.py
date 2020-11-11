@@ -1,6 +1,8 @@
 import subprocess
+import time
 from math import ceil
 from threading import Thread
+from workers.timer import format_seconds
 from workers.config import *
 
 class Pinger(Thread):
@@ -29,11 +31,15 @@ class Pinger(Thread):
 
 class PingManager():
 
-    def __init__(self, urls, verbose):
+    def __init__(self, urls, verbose, start_time):
         self.urls = urls
         self.verbose = verbose
+        self.start_time = start_time
 
     def start(self):
+        if self.verbose > 0:
+            print("%s Starting ping scan to determine if hosts is up" % format_seconds(time.time()-self.start_time))
+            
         threadnum = len(self.urls)
         output = []
         threads = [Pinger(self.urls[i], output) for i in range(threadnum)]
@@ -47,12 +53,15 @@ class PingManager():
                 if currNum < threadnum:
                     threads[currNum].start()
                     if self.verbose > 1:
-                        print("Started thread for pinging %dth url" % (currNum))
+                        print("%s Started thread for pinging %dth url" % (format_seconds(time.time()-self.start_time), currNum))
 
             for j in range(SIMULTANEOUS_THREADS):
                 currNum = i*SIMULTANEOUS_THREADS+j
                 if currNum < threadnum:
                     threads[currNum].join()
+
+        if self.verbose > 0:
+            print("%s Finished ping scan" % format_seconds(time.time()-self.start_time))
 
         return set(output)
 

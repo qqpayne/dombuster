@@ -1,19 +1,22 @@
 import subprocess
 import re
+import time
 from collections import deque
+from workers.timer import format_seconds
 
 class WhoisManager():
 
-    def __init__(self, tuples, verbose):
+    def __init__(self, tuples, verbose, start_time):
         self.tuples = tuples
         self.verbose = verbose
+        self.start_time = start_time
         self.q = deque()
         for elem in self.tuples:
             self.q.append(elem)
 
     def resolveWhoIs(self, ip):
         if not re.match(r"[\d\.]{3}\d+", str(ip)):
-            return ""
+            return "dummy"
         cmd = ['whois', ip]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         return proc.stdout.read().decode('utf-8')
@@ -22,12 +25,12 @@ class WhoisManager():
         try:
             org = re.findall(r"\norg-name:\s+([\w\s]+)\n", output)
         except:
-            org = ''
+            org = 'dummy'
 
         try:
             netnum = re.findall(r"\ninetnum:\s+([\d.]+ - [\d.]+)\n", output)
         except:
-            netnum = '0'
+            netnum = 'dummy'
 
         return (netnum, org)
 
@@ -44,6 +47,9 @@ class WhoisManager():
         return tuple(int(n) for n in ip.split('.'))
 
     def start(self):
+        if self.verbose > 0:
+            print("%s Starting whois resolvation" % format_seconds(time.time()-self.start_time))
+            
         knownIPs = []
         output = []
         while self.q:
@@ -52,7 +58,7 @@ class WhoisManager():
             for i in range(len(knownIPs)):
                 if self.checkIPrange(knownIPs[i][0], current[1]):
                     if self.verbose > 1:
-                        print("Hit in WhoIs cache for %s" % current[0])
+                        print("%s Hit in whois cache for %s" % (format_seconds(time.time()-self.start_time),current[0]))
                     output.append(knownIPs[i])
                     continue
             result = self.resolveWhoIs(current[1])
@@ -60,6 +66,9 @@ class WhoisManager():
             if parsedTuple not in knownIPs and len(parsedTuple) == 2 and len(parsedTuple[0]) > 0 and len(parsedTuple[1]) > 0: 
                 knownIPs.append(parsedTuple)
             output.append(parsedTuple)
+
+        if self.verbose > 0:
+            print("%s Finished whois resolvation" % format_seconds(time.time()-self.start_time))
 
         return output
 

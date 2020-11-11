@@ -4,10 +4,11 @@ import random
 from threading import Thread
 import json
 import requests
+from workers.timer import format_seconds
 
 class Scraper(Thread):
 
-	def __init__(self, url, domain, subdomains, pages=False, verbosity=0):
+	def __init__(self, url, domain, subdomains, pages=False, verbosity=0, start_time=0):
 		Thread.__init__(self)
 		self.domain = domain
 		self.subdomains = subdomains
@@ -15,11 +16,14 @@ class Scraper(Thread):
 		self.verbosity = verbosity
 		self.pages = pages
 		self.ses = requests.Session()
+		self.start_time = start_time
 
 	def run(self):
+		if self.verbosity > 0:
+			print("%s Starting scraping subdomains on %s" % (format_seconds(time.time()-self.start_time), self.__class__.__name__))
 		self.scrape()
 		if self.verbosity > 0:
-			print("[*] Found %d subdomains on %s" % (len(self.subdomains), self.__class__.__name__))
+			print("%s Found %d subdomains on %s" % (format_seconds(time.time()-self.start_time), len(self.subdomains), self.__class__.__name__))
 		
 	def request(self, query, page):
 		url = self.url.format(query=query, page=page)
@@ -72,7 +76,7 @@ class Scraper(Thread):
 
 			if self.verbosity > 1:
 				for i in range(len(newUrls)):
-					print("%s, found on %s" % (newUrls[i], self.__class__.__name__))
+					print("%s %s, found on %s" % (format_seconds(time.time()-self.start_time), newUrls[i], self.__class__.__name__))
 
 			if self.pages:
 				# If our source have pages, then check if new querry gave us new urls
@@ -99,49 +103,49 @@ class Scraper(Thread):
 
 class Google(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = "https://google.com/search?q={query}&start={page}"
 		pages = True
-		super().__init__(url, domain, subdomains, pages, verbosity)
+		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
 
 class Yahoo(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://search.yahoo.com/search?p={query}&b={page}'
 		pages = True
-		super().__init__(url, domain, subdomains, pages, verbosity)
+		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
 
 class Baidu(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://www.baidu.com/s?pn={page}&wd={query}&oq={query}'
 		pages = True
-		super().__init__(url, domain, subdomains, pages, verbosity)
+		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
 
 class DuckDuckGo(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://duckduckgo.com/d.js?q={query}&p={page}'
 		pages = True
-		super().__init__(url, domain, subdomains, pages, verbosity)
+		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
 
 class RapidDNS(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://rapiddns.io/subdomain/{query}?full=1'
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 class crtDOTsh(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = "https://crt.sh/?q={query}"
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 class GoogleTransparency(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = "https://transparencyreport.google.com/transparencyreport/api/v3/httpsreport/ct/certsearch{query}{page}"
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def query(self):
 		query = "?include_subdomains=true&domain=%s" % self.domain
@@ -159,6 +163,7 @@ class GoogleTransparency(Scraper):
 		query = self.query()
 		response = self.request(query, '')
 		lastPage = json.loads(response.text[7:-2])[3][4]
+		cooldown = time.time()
 
 		while True:
 			try:
@@ -169,7 +174,13 @@ class GoogleTransparency(Scraper):
 
 			if self.verbosity > 1:
 				for i in range(len(newUrls)):
-					print("%s, found on %s" % (newUrls[i], self.__class__.__name__))
+					print("%s %s, found on %s" % (time.time() - self.start_time, newUrls[i], self.__class__.__name__))
+
+			if self.verbosity > 0:
+				completion = 100 * response[3][3] // lastPage
+				if (((time.time() - self.start_time) % 40) < 5) and (time.time() - cooldown) > 0:
+					print("%s Google Certificate Transparency search %d%% completed" % (format_seconds(time.time()-self.start_time), completion))
+					cooldown = time.time()+5 
 
 			self.subdomains += newUrls
 			page = self.paging(response)
@@ -181,9 +192,9 @@ class GoogleTransparency(Scraper):
 
 class CertSpotter(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = "https://api.certspotter.com/v1/issuances?domain={query}&include_subdomains=true&expand=dns_names"
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def extractURLs(self, response):
 		subdoms = []
@@ -194,22 +205,22 @@ class CertSpotter(Scraper):
 
 class SiteDossier(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = "http://www.sitedossier.com/parentdomain/{query}"
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 class ThreatMiner(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://www.threatminer.org/getData.php?e=subdomains_container&q={query}&t=0&rt=10&p=1'
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 
 class AlienVault(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://otx.alienvault.com/otxapi/indicator/domain/passive_dns/{query}'
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def extractURLs(self, response):
 		subdoms = []
@@ -218,18 +229,18 @@ class AlienVault(Scraper):
 
 class ThreatCrowd(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={query}"
-		super().__init__(url, domain, subdomains, verbosity=verbosity)	
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def extractURLs(self, response):
 		return response.json()['subdomains']
 
 class HackerTarget(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://hackertarget.com/find-dns-host-records/'
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def request(self, query, page):
 		cookie = self.validateCookie()
@@ -247,9 +258,9 @@ class HackerTarget(Scraper):
 
 class DNSDumpster(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity):
+	def __init__(self, domain, subdomains, verbosity, start_time):
 		url = 'https://dnsdumpster.com/'
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def request(self, query, page):
 		cookie = self.validateCookie()
@@ -268,10 +279,10 @@ class DNSDumpster(Scraper):
 
 class SecurityTrails(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity, apikey):
+	def __init__(self, domain, subdomains, verbosity, start_time, apikey):
 		url = 'https://api.securitytrails.com/v1/domain/{query}/subdomains'
 		self.apikey=apikey
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def request(self, query, page):
 		headers = {'apikey':self.apikey}
@@ -288,10 +299,10 @@ class SecurityTrails(Scraper):
 
 class VirusTotal(Scraper):
 
-	def __init__(self, domain, subdomains, verbosity, apikey):
+	def __init__(self, domain, subdomains, verbosity, start_time, apikey):
 		url = 'https://www.virustotal.com/api/v3/domains/{query}/subdomains'
 		self.apikey=apikey
-		super().__init__(url, domain, subdomains, verbosity=verbosity)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, time=start_time)
 
 	def request(self, query, page):
 		headers = {'x-apikey':self.apikey}

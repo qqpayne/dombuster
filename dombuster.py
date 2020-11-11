@@ -2,17 +2,20 @@
 import re
 import json
 import argparse
+import time
 from workers.scrapers import *
 from workers.resolver import *
 from workers.pinger import *
 from workers.whois import *
 from banner import print_banner
+from workers.timer import format_seconds
 
 parser = argparse.ArgumentParser()
 parser.add_argument('domain', type=str, help="Domain name to search for subdomains")
 parser.add_argument('output', type=str, help="Name of output file")
 parser.add_argument('-k', type=str, help="Path to JSON file with API keys. Currently only VirusTotal and SecurityTrail.")
-parser.add_argument('-v', action="count", help="Verbosity (use twice if you want to see everything)")
+parser.add_argument('-v', action="store_true", help="Verbosity (caution: it will probably flood your console)")
+parser.add_argument('-q', action="store_true", help="Suppress console output")
 parser.add_argument("-t", action='store_true', help="Use Google Certificate Transparency for additional SSL scraping (VERY SLOW, usually adds quite a few entries)")
 parser.add_argument("--strict", action='store_true', help="Save only hosts that are online")
 parser.add_argument("--ip", action='store_true', help="Save IP address of subdomain")
@@ -43,7 +46,7 @@ def work(domain):
 		sources.remove(GoogleTransparency)
 
 	subdomains = [[] for i in range(len(sources))]
-	threads = [sources[i](domain, subdomains[i], verbose) for i in range(len(sources))]
+	threads = [sources[i](domain, subdomains[i], verbose, start_time) for i in range(len(sources))]
 	if args.k:
 		with open(args.k, "r") as f:
 			keys = json.loads(f.read())
@@ -51,9 +54,9 @@ def work(domain):
 		for src in APISources:
 			if str(src.__name__) in keys:
 				if verbose > 0:
-					print("[+] Found %s key" % src.__name__)
+					print("[%d] Found %s key" % (time.time()-start_time, src.__name__))
 				subdomains.append([])
-				threads.append(src(domain, subdomains[len(subdomains)-1], verbose, keys[src.__name__]))
+				threads.append(src(domain, subdomains[len(subdomains)-1], verbose, start_time, keys[src.__name__]))
 
 	for thread in threads:
 		thread.start()
@@ -76,23 +79,23 @@ def beautify(output):
 	output -= to_delete
 
 	if args.strict:
-		offlineHosts = PingManager(list(output), verbose).start()
+		offlineHosts = PingManager(list(output), verbose, start_time).start()
 		output -= offlineHosts
 
 	return output
 
 def additionals(output):
 	if args.ip:
-		ips = ResolveManager(list(output), verbose).start()
+		ips = ResolveManager(list(output), verbose, start_time).start()
 		output = [(a,b) for a, b in zip(output, ips)]
 
 	if args.org:
 		if not args.ip:
-			ips = ResolveManager(list(output), verbose).start()
+			ips = ResolveManager(list(output), verbose, start_time).start()
 			tuples = [(a,b) for a, b in zip(output, ips)]
-			orgs = WhoisManager(tuples, verbose).start()
+			orgs = WhoisManager(tuples, verbose, start_time).start()
 		else:
-			orgs = WhoisManager(output, verbose).start()
+			orgs = WhoisManager(output, verbose, start_time).start()
 		output = [(a+b) for a,b in zip(output, orgs)]
 
 	return output
@@ -110,16 +113,25 @@ def createCSVheader():
 	return ','.join(header)
 
 def formatize(output):
+	if not args.ip and not args.org:
+		return output
+
 	temp = list(output)
 	for i in range(len(temp)):
-		if temp[i] == 0 or len(temp[i]) == 0:
+		if temp[i] == 0 or len(temp[i]) == 0 or temp[i] == 'dummy':
 			temp[i] = ''
+		else:
+			temp[i] = ''.join(temp[i])
+
 	if args.csv:
 		temp = ",".join(temp)
 	else:
 		temp = " ".join(temp)
+	return temp
 
 def main():
+	
+
 	domain = validate(args.domain)
 	subdomains = work(domain)
 	overall = merge(subdomains)
@@ -133,13 +145,26 @@ def main():
 		for entry in overall:
 			f.write("%s\n" % formatize(entry))
 
-	if args.strict:
-		print("\nFinished. There are %d online hosts on subdomains for %s" % (len(overall), domain))
-	else:
-		print("\nFinished. There are %d subdomains for %s" % (len(overall), domain))
+	if verbose > 0:
+		if args.strict:
+			print("%s Search is over. There are %d online hosts on subdomains for %s" % (format_seconds(time.time()-start_time), len(overall), domain))
+		else:
+			print("%s Search is over. There are %d subdomains for %s" % (format_seconds(time.time()-start_time), len(overall), domain))
 
 if __name__ == "__main__":
-	print_banner()
 	args = parser.parse_args()
-	verbose = 0 if (args.v is None) else args.v
+	if args.q and args.v:
+		print("Conflicting arguments: -q and -v")
+		exit(1)
+	elif args.q:
+		verbose = 0
+	elif args.v:
+		verbose = 2
+	else:
+		verbose = 1
+
+	if verbose > 0:
+		print_banner()
+
+	start_time = time.time()
 	main()

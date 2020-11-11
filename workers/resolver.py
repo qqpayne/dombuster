@@ -1,7 +1,10 @@
 import socket
 from math import ceil
+import time
 from threading import Thread
 from workers.config import *
+from workers.timer import format_seconds
+
 
 class Resolver(Thread):
 
@@ -20,11 +23,15 @@ class Resolver(Thread):
 
 class ResolveManager():
 
-    def __init__(self, urls, verbose):
+    def __init__(self, urls, verbose, start_time):
         self.urls = urls
         self.verbose = verbose
+        self.start_time = start_time
 
     def start(self):
+        if self.verbose > 0:
+            print("%s Starting DNS scan to determine domains IP addresses" % format_seconds(time.time()-self.start_time))
+            
         threadnum = len(self.urls)
         output = [0 for i in range(threadnum)]
         threads = [Resolver(self.urls[i], output, i) for i in range(threadnum)]
@@ -38,11 +45,14 @@ class ResolveManager():
                 if currNum < threadnum:
                     threads[currNum].start()
                     if self.verbose > 1:
-                        print("Started thread for resolving %dth url" % (currNum))
+                        print("%s Started thread for resolving %dth url" % (format_seconds(time.time()-self.start_time), currNum))
 
             for j in range(SIMULTANEOUS_THREADS):
                 currNum = i*SIMULTANEOUS_THREADS+j
                 if currNum < threadnum:
                     threads[currNum].join()
+
+        if self.verbose > 0:
+            print("%s Finished DNS scan" % format_seconds(time.time()-self.start_time))
 
         return output
