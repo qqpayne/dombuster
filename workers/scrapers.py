@@ -302,7 +302,7 @@ class VirusTotal(Scraper):
 	def __init__(self, domain, subdomains, verbosity, start_time, apikey):
 		url = 'https://www.virustotal.com/api/v3/domains/{query}/subdomains'
 		self.apikey=apikey
-		super().__init__(url, domain, subdomains, verbosity=verbosity, time=start_time)
+		super().__init__(url, domain, subdomains, verbosity=verbosity, start_time=start_time)
 
 	def request(self, query, page):
 		headers = {'x-apikey':self.apikey}

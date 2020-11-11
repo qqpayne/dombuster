@@ -28,16 +28,14 @@ APISources = [VirusTotal, SecurityTrails]
 
 def validate(domain):
 	try:
-
 		# all sources accept kaspersky.com, not https://kaspersky.com
-		if args.domain.startswith("http"):
-			domain = re.findall(r'[^/]*\.[a-zA-Z]{2,}$', args.domain)[0]
+		validation = re.match(r"[^/]*\.[a-zA-Z]{2,}$", domain)
+		if validation:
+			return validation.group(0)
 		else:
-			domain = args.domain
-		return domain
-	
+			print("%s is not a valid domain. Please enter valid one" % domain)
+			exit(1)
 	except:
-		print("Enter valid domain")
 		exit(1)
 
 def work(domain):
@@ -54,7 +52,7 @@ def work(domain):
 		for src in APISources:
 			if str(src.__name__) in keys:
 				if verbose > 0:
-					print("[%d] Found %s key" % (time.time()-start_time, src.__name__))
+					print("%s Found %s key" % (format_seconds(time.time()-start_time), src.__name__))
 				subdomains.append([])
 				threads.append(src(domain, subdomains[len(subdomains)-1], verbose, start_time, keys[src.__name__]))
 
@@ -130,8 +128,6 @@ def formatize(output):
 	return temp
 
 def main():
-	
-
 	domain = validate(args.domain)
 	subdomains = work(domain)
 	overall = merge(subdomains)
