@@ -10,7 +10,7 @@ Command line utility to search for subdomains in open sources. Named by analogy 
 * Can provide you with various data about subdomains
 
 ### Screenshot
-![DomBuster](https://i.imgur.com/rdPq8FT.png)
+![DomBuster](https://i.imgur.com/mot4wa3.png)
 
 ### Installation
 
@@ -23,6 +23,10 @@ git clone https://github.com/qqpayne/dombuster.git
 * To enumerate subdomains of specific domain and save results to txt:
 
 ``dombuster.py example.com output.txt``
+
+* To enumerate subdomains of specific domain fast, but with possible data loss:
+
+``dombuster.py -f example.com output.txt``
 
 * To enumerate subdomains of specific domain and save only that subdomains, who respond to ping:
 
