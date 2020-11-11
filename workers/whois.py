@@ -1,18 +1,23 @@
 import subprocess
 import re
+from math import ceil
 import time
-from collections import deque
+from threading import Thread
 from workers.timer import format_seconds
+from workers.config import *
 
-class WhoisManager():
+class Whois(Thread):
 
-    def __init__(self, tuples, verbose, start_time):
-        self.tuples = tuples
-        self.verbose = verbose
-        self.start_time = start_time
-        self.q = deque()
-        for elem in self.tuples:
-            self.q.append(elem)
+    def __init__(self, ip, output, index):
+        Thread.__init__(self)
+        self.ip = ip
+        self.output = output
+        self.index = index
+
+    def run(self):
+        output = self.resolveWhoIs(self.ip)
+        info = self.parseWhoIs(output)
+        self.output[self.index] = info
 
     def resolveWhoIs(self, ip):
         if not re.match(r"[\d\.]{3}\d+", str(ip)):
@@ -20,7 +25,7 @@ class WhoisManager():
         cmd = ['whois', ip]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         return proc.stdout.read().decode('utf-8')
-        
+
     def parseWhoIs(self, output):
         try:
             org = re.findall(r"\norg-name:\s+([\w\s]+)\n", output)
@@ -34,38 +39,37 @@ class WhoisManager():
 
         return (netnum, org)
 
-    def checkIPrange(self, rangeIP, targetIP):
-        try:
-            rangeIP = rangeIP.split("-")
-            start = rangeIP[0]
-            end = rangeIP[1]
-        except:
-            return False
-        return self.parseIP4(start) < self.parseIP4(targetIP) < self.parseIP4(end)
+class WhoisManager():
 
-    def parseIP4(self, ip):
-        return tuple(int(n) for n in ip.split('.'))
+    def __init__(self, tuples, verbose, start_time):
+        self.tuples = tuples
+        self.verbose = verbose
+        self.start_time = start_time
+
 
     def start(self):
         if self.verbose > 0:
             print("%s Starting whois resolvation" % format_seconds(time.time()-self.start_time))
             
-        knownIPs = []
-        output = []
-        while self.q:
-            current = self.q.popleft() 
-            # starting from the left end, because we need output be consistent with input
-            for i in range(len(knownIPs)):
-                if self.checkIPrange(knownIPs[i][0], current[1]):
+        threadnum = len(self.tuples)
+        output = [0 for i in range(threadnum)]
+        threads = [Whois(self.tuples[i][1], output, i) for i in range(threadnum)]
+
+        batches = ceil(threadnum / WHOIS_THREADS)
+
+        for i in range(batches):
+
+            for j in range(WHOIS_THREADS):
+                currNum = i*WHOIS_THREADS+j
+                if currNum < threadnum:
+                    threads[currNum].start()
                     if self.verbose > 1:
-                        print("%s Hit in whois cache for %s" % (format_seconds(time.time()-self.start_time),current[0]))
-                    output.append(knownIPs[i])
-                    continue
-            result = self.resolveWhoIs(current[1])
-            parsedTuple = self.parseWhoIs(result)
-            if parsedTuple not in knownIPs and len(parsedTuple) == 2 and len(parsedTuple[0]) > 0 and len(parsedTuple[1]) > 0: 
-                knownIPs.append(parsedTuple)
-            output.append(parsedTuple)
+                        print("%s Started thread for resolving %dth url" % (format_seconds(time.time()-self.start_time), currNum))
+
+            for j in range(WHOIS_THREADS):
+                currNum = i*WHOIS_THREADS+j
+                if currNum < threadnum:
+                    threads[currNum].join()
 
         if self.verbose > 0:
             print("%s Finished whois resolvation" % format_seconds(time.time()-self.start_time))

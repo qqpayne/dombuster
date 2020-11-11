@@ -92,6 +92,7 @@ def additionals(output):
 			ips = ResolveManager(list(output), verbose, start_time).start()
 			tuples = [(a,b) for a, b in zip(output, ips)]
 			orgs = WhoisManager(tuples, verbose, start_time).start()
+			output = [(a, '') for a in output]
 		else:
 			orgs = WhoisManager(output, verbose, start_time).start()
 		output = [(a+b) for a,b in zip(output, orgs)]
