@@ -1,9 +1,7 @@
 import subprocess
 from math import ceil
 from threading import Thread
-
-SIMULTANEOUS_THREADS = 150
-TIMEOUT = 7
+from workers.config import *
 
 class Pinger(Thread):
 
@@ -49,7 +47,7 @@ class PingManager():
                 if currNum < threadnum:
                     threads[currNum].start()
                     if self.verbose > 1:
-                        print("Started thread for %dth url" % (currNum))
+                        print("Started thread for pinging %dth url" % (currNum))
 
             for j in range(SIMULTANEOUS_THREADS):
                 currNum = i*SIMULTANEOUS_THREADS+j
