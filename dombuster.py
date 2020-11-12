@@ -42,9 +42,7 @@ def work(domain):
 		# slow sources
 		sources.remove(GoogleTransparency)
 		sources.remove(Yahoo)
-		sources.remove(Baidu)
 		sources.remove(Google)
-		sources.remove(DuckDuckGo)
 
 	subdomains = [[] for i in range(len(sources))]
 	threads = [sources[i](domain, subdomains[i], verbose, start_time) for i in range(len(sources))]
@@ -133,7 +131,8 @@ def formatize(output):
 
 def main():
 	domain = validate(args.domain)
-	print_target(domain)
+	if verbose > 0:
+		print_target(domain)
 	subdomains = work(domain)
 	overall = merge(subdomains)
 	overall = beautify(overall)
@@ -166,6 +165,6 @@ if __name__ == "__main__":
 
 	if verbose > 0:
 		print_banner()
-
+		
 	start_time = time.time()
 	main()

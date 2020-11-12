@@ -23,7 +23,7 @@ class Whois(Thread):
         if not re.match(r"[\d\.]{3}\d+", str(ip)):
             return "dummy"
         cmd = ['whois', ip]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) # suppress errors
         return proc.stdout.read().decode('utf-8')
 
     def parseWhoIs(self, output):

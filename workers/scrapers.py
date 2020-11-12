@@ -115,20 +115,6 @@ class Yahoo(Scraper):
 		pages = True
 		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
 
-class Baidu(Scraper):
-
-	def __init__(self, domain, subdomains, verbosity, start_time):
-		url = 'https://www.baidu.com/s?pn={page}&wd={query}&oq={query}'
-		pages = True
-		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
-
-class DuckDuckGo(Scraper):
-
-	def __init__(self, domain, subdomains, verbosity, start_time):
-		url = 'https://duckduckgo.com/d.js?q={query}&p={page}'
-		pages = True
-		super().__init__(url, domain, subdomains, pages, verbosity, start_time)
-
 class RapidDNS(Scraper):
 
 	def __init__(self, domain, subdomains, verbosity, start_time):

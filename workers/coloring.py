@@ -18,7 +18,7 @@ def colored(string, color):
     if (is_windows):
         return string
 
-    return "%s %s %s" % (colors.get(color), string, colors.get('native'))
+    return "%s%s%s" % (colors.get(color), string, colors.get('native'))
 
 def cprint(string, color):
     print(colored(string, color))
