@@ -1,4 +1,4 @@
-from termcolor import colored
+from workers.coloring import colored
 
 def format_seconds(seconds):
     minutes = seconds // 60
