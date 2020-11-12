@@ -7,7 +7,7 @@ from workers.scrapers import *
 from workers.resolver import *
 from workers.pinger import *
 from workers.whois import *
-from banner import print_banner
+from appearance import *
 from workers.timer import format_seconds
 
 parser = argparse.ArgumentParser()
@@ -31,7 +31,7 @@ def validate(domain):
 		if validation:
 			return validation.group(0)
 		else:
-			print("%s is not a valid domain. Please enter valid one" % domain)
+			print_error("%s is not a valid domain. Please enter valid one" % domain)
 			exit(1)
 	except:
 		exit(1)
@@ -133,6 +133,7 @@ def formatize(output):
 
 def main():
 	domain = validate(args.domain)
+	print_target(domain)
 	subdomains = work(domain)
 	overall = merge(subdomains)
 	overall = beautify(overall)
@@ -154,7 +155,7 @@ def main():
 if __name__ == "__main__":
 	args = parser.parse_args()
 	if args.q and args.v:
-		print("Conflicting arguments: -q and -v")
+		print_error("Conflicting arguments: -q and -v")
 		exit(1)
 	elif args.q:
 		verbose = 0
