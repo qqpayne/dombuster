@@ -9,7 +9,7 @@ def print_banner():
 	""", "cyan")
 
 def print_target(domain):
-        cprint("               Target: %s \n" % (domain), 
+        cprint("             Target: %s \n" % (domain), 
         "green")
 
 def print_error(string):
