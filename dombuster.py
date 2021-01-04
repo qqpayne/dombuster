@@ -70,10 +70,12 @@ def merge(subdomains):
 		overall += output
 	return set(overall)
 
-def beautify(output):
+def beautify(output, domain):
 	to_delete = set()
 	for entry in output:
 		if entry.startswith(".") or entry.startswith("*"):
+			to_delete.add(entry)
+		if domain not in entry:
 			to_delete.add(entry)
 	output -= to_delete
 
@@ -135,7 +137,7 @@ def main():
 		print_target(domain)
 	subdomains = work(domain)
 	overall = merge(subdomains)
-	overall = beautify(overall)
+	overall = beautify(overall, domain)
 	overall = additionals(overall)
 
 	with open(args.output, "w+") as f:
